@@ -1,0 +1,29 @@
+name: test
+on: [push]
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout the code
+        uses: actions/checkout@v2
+
+      - name: setup go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+
+      - name: install golanci-linter
+        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.39.0
+
+      - name: install app dependencies
+        run: go mod download
+
+      - name: build
+        run: go build -v ./...
+
+      - name: run unit tests
+        run: go test -v -race ./...
+
+      - name: run linter
+        run: golangci-lint run -v ./...
