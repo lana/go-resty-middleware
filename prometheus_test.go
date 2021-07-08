@@ -17,7 +17,9 @@ const testHost = "http://flock.service"
 
 func TestPrometheus(t *testing.T) {
 	type tt struct {
-		err string
+		url    string
+		params map[string]string
+		err    string
 	}
 
 	tests := testy.NewTable()
@@ -26,7 +28,9 @@ func TestPrometheus(t *testing.T) {
 		httpmock.RegisterResponder(http.MethodGet, testHost+"/1",
 			httpmock.NewStringResponder(http.StatusOK, ""))
 
-		return tt{}
+		return tt{
+			url: "/1",
+		}
 	})
 
 	tests.Add("error", func() interface{} {
@@ -34,7 +38,20 @@ func TestPrometheus(t *testing.T) {
 			httpmock.NewErrorResponder(errors.New("failed")))
 
 		return tt{
+			url: "/1",
 			err: `Get "http://flock.service/1": failed`,
+		}
+	})
+
+	tests.Add("path params", func() interface{} {
+		httpmock.RegisterResponder(http.MethodGet, testHost+"/10",
+			httpmock.NewStringResponder(http.StatusOK, ""))
+
+		return tt{
+			url: "/{id}",
+			params: map[string]string{
+				"id": "10",
+			},
 		}
 	})
 
@@ -45,7 +62,7 @@ func TestPrometheus(t *testing.T) {
 		httpmock.ActivateNonDefault(client.GetClient())
 		defer httpmock.DeactivateAndReset()
 
-		_, err := client.SetHostURL(testHost).R().Get("/1")
+		_, err := client.SetHostURL(testHost).R().SetPathParams(tt.params).Get(tt.url)
 
 		if total, _ := testutil.GatherAndCount(reg, "resty_requests_total"); total < 1 {
 			t.Errorf("expected at least 1, got %d", total)
