@@ -51,6 +51,10 @@ func TestPrometheus(t *testing.T) {
 			t.Errorf("expected at least 1, got %d", total)
 		}
 
+		if err := testutil.GatherAndCompare(reg, testy.Snapshot(t), "resty_requests_total"); err != nil {
+			t.Error(err)
+		}
+
 		if total, _ := testutil.GatherAndCount(reg, "resty_request_duration_seconds"); total < 1 {
 			t.Errorf("expected at least 1, got %d", total)
 		}
