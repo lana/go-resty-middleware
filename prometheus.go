@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -11,6 +12,10 @@ import (
 )
 
 const defaultSubsystem = "resty"
+
+type ctxkey struct{ name string }
+
+var urlKey = &ctxkey{"request-url"}
 
 type prometheus struct {
 	reqTotal *prom.CounterVec
@@ -39,15 +44,24 @@ func (p *prometheus) register(reg prom.Registerer, subsystem string) {
 }
 
 func (p *prometheus) collect(req *http.Request, code int, dur time.Duration) {
+	url, _ := req.Context().Value(urlKey).(string)
+
 	values := []string{
 		strconv.Itoa(code),
 		req.Method,
 		req.URL.Hostname(),
-		req.URL.EscapedPath(),
+		url,
 	}
 
 	p.reqTotal.WithLabelValues(values...).Inc()
 	p.reqDur.WithLabelValues(values...).Observe(dur.Seconds())
+}
+
+func (p *prometheus) beforeRequest(client *resty.Client, req *resty.Request) error {
+	ctx := context.WithValue(req.Context(), urlKey, req.URL)
+	req.SetContext(ctx)
+
+	return nil
 }
 
 func (p *prometheus) collectAfterResponse(client *resty.Client, res *resty.Response) error {
@@ -90,6 +104,8 @@ func PrometheusWithRegister(client *resty.Client, reg prom.Registerer, subsystem
 	p := &prometheus{}
 	p.register(reg, subsystem)
 
-	return client.OnAfterResponse(p.collectAfterResponse).
+	return client.
+		OnBeforeRequest(p.beforeRequest).
+		OnAfterResponse(p.collectAfterResponse).
 		OnError(p.collectError)
 }

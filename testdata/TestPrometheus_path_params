@@ -1,0 +1,3 @@
+# HELP resty_requests_total The number of requests made
+# TYPE resty_requests_total counter
+resty_requests_total{code="200",host="flock.service",method="GET",url="/{id}"} 1
